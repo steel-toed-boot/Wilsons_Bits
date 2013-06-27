@@ -1,0 +1,20 @@
+rednet.open("top")
+local side={}
+side["buy"]="right"
+side["sell"]="left"
+local sid
+
+function waitMsg(msg)
+	id,msg,dist = rednet.receive()
+	sid=msg
+	redstone.setOutput(tostring(side[sid]),true)
+	sleep(5)
+	redstone.setOutput(tostring(side[sid]),false)
+	sid=nil
+end
+
+redstone.setOutput("left",false)
+redstone.setOutput("right",false)
+while true do
+	waitMsg()
+end

@@ -1,0 +1,37 @@
+local ints=peripheral.wrap("bottom")
+local chests={}
+chests["receive"]=2 chests["send"]=3 chests["storeSupply"] = 4 chests["storeEarnings"] = 5
+local continue=true
+
+function waitForResponse()
+	while event~="isort_item" or "rednet_message" do
+		local event=""
+		local msg1,msg2
+		event,msg1,msg2 = os.pullEvent()
+		if event=="rednet_message" and msg2 == "stop" then
+			continue =false
+			redstone.setOutput("back",false)
+			break
+		elseif event=="isort_item" then
+			local identifier,amount = msg1,msg2
+			verify(identifier,amount)
+			break
+		end
+	end
+end
+
+function verify(identifier,amount)
+	rednet.send(1,"itemScan:"..identifier.."/"..amount)
+	id,msg,dist = rednet.receive()
+	if msg=="approve" then
+		ints.sort(chests["storeEarnings"]) --direction,amount
+	else
+		ints.sort(chests["send"])
+		rednet.send(17,"buy")
+	end
+end
+
+redstone.setOutput("back",true)
+while continue do
+	waitForResponse()
+end
