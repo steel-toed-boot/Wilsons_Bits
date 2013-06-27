@@ -12,3 +12,6 @@ Computer folder information:
 13:chatbox computer. used for giveGb command in chat;nil
 16:item handler computer. used to send items when purchased and collect items when sold to store; nil
 17:used to toggle the cyan/lime lights inside the store.;nil 
+
+The program 'gc' stands for graphical designer. It is used for checking x and y positions to coordinate button locations.
+It is never used in Wilson's Bits.
