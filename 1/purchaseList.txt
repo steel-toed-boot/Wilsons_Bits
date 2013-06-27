@@ -1,0 +1,5 @@
+RFU:250:"Refined Uranium":30244
+DMD:450:"Diamond":264
+TITNM:1000:"Titanium Ingot":643848
+CBBL:.1:"Cobblestone":4
+ULTSP:100000000:"Ultimate Solar Panel":66186
