@@ -1,0 +1,29 @@
+rednet.open("right")
+os.loadAPI("screenDesigner")
+local monX,monY = screenDesigner.getMonitorSize()
+
+function windowData()
+	--idle
+	screenDesigner.setWindowStateWithoutDrawing(1)
+	screenDesigner.newText(1,1,"Wilson's Bits",bgColor,colors.cyan,2)
+	
+	--display player
+	screenDesigner.setWindowStateWithoutDrawing(2)
+	screenDesigner.newText(1,1,"USER:",bgColor,colors.red)
+end
+
+function waitMsg()
+	id,msg,dist = rednet.receive()
+	if msg=="logOff" then
+		screenDesigner.setWindowState(1,true)
+	else
+		screenDesigner.setWindowState(2,true)
+		screenDesigner.writeText(1,2,msg,nil,colors.cyan,2)
+	end
+end
+
+windowData()
+screenDesigner.setWindowState(1,true)
+while true do
+	waitMsg()
+end

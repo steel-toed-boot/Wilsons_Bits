@@ -1,0 +1,166 @@
+rednet.open("right")
+os.loadAPI("screenDesigner")
+
+local buttons = screenDesigner.getButtons()
+local backgroundData = screenDesigner.getBackgroundData()
+local items = {}
+local buttonFunc = {}
+local updateId
+local monX,monY = nil
+local rednetMessage
+local wb="Wilson's Bits"
+
+function fileReader()
+	local file = io.open("items.txt","r")
+	local lineCount=0
+	for line in file:lines() do
+		lineCount=lineCount+1
+		for item,bundle,cost,actualName,uniqueId in string.gmatch(line,"(.+):(.+):(.+):(.+):(.+)") do
+			items[lineCount]={}
+			items[lineCount][1]=item
+			items[lineCount][2]="x"..bundle
+			items[lineCount][3]=cost
+			items[lineCount][4]=actualName
+			items[lineCount][5]=uniqueId
+		end
+	end
+	file:close()
+end
+
+
+function housekeeping()
+	fileReader()
+	monX,monY = screenDesigner.getMonitorSize()
+	screenDesigner.clearScreen()
+end
+
+function newButtonFunction(id,func)
+	buttonFunc[id]=func
+end
+
+function rednt()
+	rednetMessage=nil
+	id,msg,dist = rednet.receive()
+	rednetMessage = msg
+end
+
+function finishedProcessingScreen(text,message)
+	for result,failReason in string.gmatch(message,"(.+):(.+)") do
+		if failReason==" " then
+			resultColor = colors.lime
+		else
+			resultColor = colors.red
+		end
+		
+		processedText = text.." "..result
+		screenDesigner.clearScreen()
+		screenDesigner.writeText(math.floor((monX-1 - string.len("Purchase")) /2) +1,math.floor(monY/3)-1,"Purchase",colors.black,resultColor)
+		screenDesigner.writeText(math.floor((monX-1 - string.len(processedText)) /2) +1,math.floor(monY/3)+1,processedText,colors.black,resultColor)
+		screenDesigner.writeText(math.floor((monX-1 - string.len(failReason)) /2) +1,math.floor(monY/3)+3,failReason,nil,resultColor)
+		sleep(3)
+	end
+end
+
+function buyFunction()
+	sleep(.2)
+	--nothing is drawn with this new window state but it makes it separate from other states.
+	screenDesigner.setWindowState(3,true)
+	
+	local processingText = "Processing "..items[updateId][2].." "..items[updateId][1].."..."
+	screenDesigner.writeText(math.floor((monX-1 - string.len(processingText)) /2) +1,16,processingText,colors.black,colors.cyan)
+	rednet.send(1,items[updateId][5]..":"..items[updateId][3]..":"..items[updateId][2])
+	rednet.send(7,items[updateId][2].." "..items[updateId][1].."...")
+	--checks to see if purchase is valid
+	
+	id,msg,dist = rednet.receive()
+	text = items[updateId][2].." "..items[updateId][1]
+	rednet.send(7,text.."/"..msg)
+	finishedProcessingScreen(text,msg)
+	
+	sleep(.5)
+	screenDesigner.setWindowState(2,true)
+end
+
+function helpFunc()
+	for box=1,#items do
+		local relativeX = math.floor((box-1)%3)
+		local relativeY = math.floor((box-1)/3)
+		screenDesigner.writeText(relativeX*9+3,relativeY*6+2,tostring(items[box][4]),bgColor,colors.cyan)
+		sleep(1)
+		screenDesigner.setWindowState(2,true)
+	end
+end
+
+function waitForProcess()
+	screenDesigner.setWindowState(3,true)
+	--writes processing text
+	local processingText =  "Processing "..rednetMessage
+	screenDesigner.writeText(math.floor((monX-1 - string.len(processingText)) /2) +1,16,processingText,colors.black,colors.cyan)
+	id,msg,dist = rednet.receive()
+	for text,resultMsg in string.gmatch(msg,"(.+)/(.+)") do
+		finishedProcessingScreen(text,resultMsg)
+	end
+	
+	screenDesigner.setWindowState(2,true)
+end
+
+function windowData()
+	--standby screen
+	screenDesigner.setWindowStateWithoutDrawing(1)
+	screenDesigner.newText(math.floor((monX-1 - string.len(wb)) /2) +1,math.floor(monY/2),wb,bgColor,colors.cyan)
+	
+	--purchase screen
+	screenDesigner.setWindowStateWithoutDrawing(2)
+	
+	for box=1,#items do
+		local relativeX = math.floor((box-1)%3)
+		local relativeY = math.floor((box-1)/3)
+		for data=1,3 do
+			screenDesigner.newText(relativeX*9+3,relativeY*6+data+1,tostring(items[box][data]))
+			if data == 3 then
+				screenDesigner.newButton(box,state,"BUY",relativeX*9+3,relativeY*6+6,relativeX*9+7,relativeY*6+6,invisibleButton,tColor,colors.lime,colors.red)
+				screenDesigner.makeFlashButton(box)
+				screenDesigner.buttonToggleHandler(#buttons[2],1)
+				newButtonFunction(#buttons[2],buyFunction)
+			end
+		end
+	end
+	
+	--help button
+	screenDesigner.newButton(#items+1,state,"?",monX,monY,monX,monY,false,colors.orange,colors.white,colors.black)
+	screenDesigner.makeFlashButton(#items+1)
+	newButtonFunction(#items+1,helpFunc)
+	
+end
+
+function activeScreen()
+	local continue = true
+	while continue do
+		parallel.waitForAny(screenDesigner.testTouch,rednt)
+		updateId=screenDesigner.getUpdateId()
+		if rednetMessage ==nil and updateId ~= nil  then
+			buttonFunc[updateId]()
+			updateId=nil
+			continue = true
+		elseif rednetMessage == "logOff" then
+			continue = false
+		elseif rednetMessage ~= "logOff" and rednetMessage ~= nil then
+			waitForProcess()
+			continue=true
+		end
+	end
+end
+
+function waitForLogin()
+	screenDesigner.setWindowState(1,true)
+	id,msg,dist = rednet.receive()
+	screenDesigner.setWindowState(2,true)
+	activeScreen()
+end
+
+housekeeping()
+windowData()
+
+while true do
+	waitForLogin()
+end
