@@ -1,13 +1,15 @@
 --Kulopto @ Youtube
 
 local sideDetect = false
-updateId = nil
+updateId=nil
 buttons ={}
 backgroundData = {}
 local buttonToggle = {}
 local buttonFlash = {}
 local windowStateId = 1
 local lastBackgroundId = {}
+local buttonFunc = {}
+
 --peripheral scanner
 function checkPeripheral()
 	for i,side in pairs(rs.getSides()) do
@@ -82,6 +84,9 @@ function getUpdateId()
 	return updateId
 end
 
+function newButtonFunction(id,func)
+	buttonFunc[id]=func
+end
 
 
 --Button stuff
@@ -158,6 +163,11 @@ function newButton(buttonId,state,text,xmin,ymin,xmax,ymax,invisibleButton,tColo
 	buttons[windowStateId][buttonId]["invisibleButton"] = invisibleButton or false
 	buttons[windowStateId][buttonId]["textAlignedLeft"]  = textAlignedLeft or nil
 	buttons[windowStateId][buttonId]["textAlignedRight"] = textAlignedRight or nil
+	newButtonFunction(buttonId,func)
+end
+
+function func()
+	print("button id:"..updateId.."pressed")
 end
 
 function buttonToggleHandler(buttonId, toggleId)
@@ -270,6 +280,9 @@ function testTouch()
 					sleep(.2) 
 					updateButtons(updateId)
 				end
+				
+				buttonFunc[buttonId]()
+				
 			end
 		end
 	end

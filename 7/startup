@@ -4,8 +4,6 @@ os.loadAPI("screenDesigner")
 local buttons = screenDesigner.getButtons()
 local backgroundData = screenDesigner.getBackgroundData()
 local items = {}
-local buttonFunc = {}
-local updateId
 local monX,monY = nil
 local rednetMessage
 local wb="Wilson's Bits"
@@ -34,14 +32,16 @@ function housekeeping()
 	screenDesigner.clearScreen()
 end
 
-function newButtonFunction(id,func)
-	buttonFunc[id]=func
-end
-
 function rednt()
-	rednetMessage=nil
-	id,msg,dist = rednet.receive()
-	rednetMessage = msg
+	rednetMessage=""
+	local msg1=""
+	while true do
+		id,msg1,dist = rednet.receive()
+		rednetMessage=msg1
+		if msg1=="logOff" or string.find(rednetMessage,"Processing")~=nil then
+			break
+		end
+	end
 end
 
 function finishedProcessingScreen(text,message)
@@ -52,28 +52,32 @@ function finishedProcessingScreen(text,message)
 			resultColor = colors.red
 		end
 		
-		processedText = text.." "..result
+		local processedText = text.." "..result
 		screenDesigner.clearScreen()
 		screenDesigner.writeText(math.floor((monX-1 - string.len("Purchase")) /2) +1,math.floor(monY/3)-1,"Purchase",colors.black,resultColor)
 		screenDesigner.writeText(math.floor((monX-1 - string.len(processedText)) /2) +1,math.floor(monY/3)+1,processedText,colors.black,resultColor)
 		screenDesigner.writeText(math.floor((monX-1 - string.len(failReason)) /2) +1,math.floor(monY/3)+3,failReason,nil,resultColor)
-		sleep(3)
+		sleep(1)
 	end
 end
 
+
 function buyFunction()
-	sleep(.2)
+	local updateId=screenDesigner.getUpdateId()
+	local selected=updateId
+	
+	rednet.send(1,"modeSwitch:1")
 	--nothing is drawn with this new window state but it makes it separate from other states.
 	screenDesigner.setWindowState(3,true)
 	
-	local processingText = "Processing "..items[updateId][2].." "..items[updateId][1].."..."
+	local processingText = "Processing "..items[selected][2].." "..items[selected][1].."..."
 	screenDesigner.writeText(math.floor((monX-1 - string.len(processingText)) /2) +1,16,processingText,colors.black,colors.cyan)
-	rednet.send(1,items[updateId][5]..":"..items[updateId][3]..":"..items[updateId][2])
-	rednet.send(2,items[updateId][2].." "..items[updateId][1].."...")
+	rednet.send(1,items[selected][5]..":"..items[selected][3]..":"..items[selected][2])
+	rednet.send(2,processingText)
 	--checks to see if purchase is valid
 	
 	id,msg,dist = rednet.receive()
-	text = items[updateId][2].." "..items[updateId][1]
+	text = items[selected][2].." "..items[selected][1]
 	rednet.send(2,text.."/"..msg)
 	finishedProcessingScreen(text,msg)
 	
@@ -94,7 +98,7 @@ end
 function waitForProcess()
 	screenDesigner.setWindowState(3,true)
 	--writes processing text
-	local processingText =  "Processing "..rednetMessage
+	local processingText = rednetMessage
 	screenDesigner.writeText(math.floor((monX-1 - string.len(processingText)) /2) +1,16,processingText,colors.black,colors.cyan)
 	id,msg,dist = rednet.receive()
 	for text,resultMsg in string.gmatch(msg,"(.+)/(.+)") do
@@ -121,7 +125,7 @@ function windowData()
 				screenDesigner.newButton(box,state,"BUY",relativeX*9+3,relativeY*6+6,relativeX*9+7,relativeY*6+6,invisibleButton,tColor,colors.lime,colors.red)
 				screenDesigner.makeFlashButton(box)
 				screenDesigner.buttonToggleHandler(#buttons[2],1)
-				newButtonFunction(#buttons[2],buyFunction)
+				screenDesigner.newButtonFunction(#buttons[2],buyFunction)
 			end
 		end
 	end
@@ -129,7 +133,7 @@ function windowData()
 	--help button
 	screenDesigner.newButton(#items+1,state,"?",monX,monY,monX,monY,false,colors.orange,colors.white,colors.black)
 	screenDesigner.makeFlashButton(#items+1)
-	newButtonFunction(#items+1,helpFunc)
+	screenDesigner.newButtonFunction(#items+1,helpFunc)
 	
 end
 
@@ -137,14 +141,10 @@ function activeScreen()
 	local continue = true
 	while continue do
 		parallel.waitForAny(screenDesigner.testTouch,rednt)
-		updateId=screenDesigner.getUpdateId()
-		if rednetMessage ==nil and updateId ~= nil  then
-			buttonFunc[updateId]()
-			updateId=nil
-			continue = true
-		elseif rednetMessage == "logOff" then
+		--waits for button press or rednet message
+		if rednetMessage == "logOff" then
 			continue = false
-		elseif rednetMessage ~= "logOff" and rednetMessage ~= nil then
+		elseif string.find(rednetMessage,"Processing") ~=nil then
 			waitForProcess()
 			continue=true
 		end

@@ -3,7 +3,6 @@ os.loadAPI("screenDesigner")
 local playerDet = peripheral.wrap("left")
 local username = nil --logged in person
 local monX,monY = screenDesigner.getMonitorSize()
-local buttonFunc = {}
 local guudeBucks = {}
 local guudeBucksReference = {}
 local purchaseList = {}
@@ -17,10 +16,6 @@ local modeText={"Buy Mode ","Sell Mode"}
 local lastUser = "Nobody"
 
 local mainScreenText = {"Welcome to Wilson's Bits, a one of a","kind of shopping experience.","","To Log In just right click the player","detector surrounded by cyan.","Please Remember to ALWAYS Log Out","and don't leave the game logged in."}
-
-function newButtonFunction(id,func)
-	buttonFunc[id]=func
-end
 
 function rednt()
 	rednetMessage=nil
@@ -92,10 +87,7 @@ function activeSection()
 		--waits for logout button or purchase occurence
 		parallel.waitForAny(screenDesigner.testTouch,rednt)
 		--if a button is not pushed and parallel is a success, it is the rednet message that worked.
-		updateId=screenDesigner.getUpdateId()
-		if updateId ~= nil and rednetMessage==nil then
-			buttonFunc[updateId]()
-		elseif rednetMessage~=nil then
+		if rednetMessage~=nil then
 			for msg1,msg2 in string.gmatch(rednetMessage,"(.+):(.+)") do
 				if msg1=="giveGb" then
 					updateMoney(username,msg2)
@@ -103,6 +95,9 @@ function activeSection()
 					itemScan(msg2)
 					sleep(3.5)
 					screenDesigner.setWindowState(2,true)
+				elseif msg1=="modeSwitch" then 
+					modeValue = 1
+					rednet.send(16,"stop")
 				else --if giveGb was not the message or itemScan, then a purchase was made from the purchase computer
 					sendFeedback(msg1,msg2)
 				end
@@ -157,6 +152,7 @@ function sendFeedback(uniqueIdAndCost,amount)
 		if tonumber(cost)>tonumber(guudeBucks[tostring(username)]) then
 			result = "Failed"
 			failReason = "Insufficient Funds"
+			rednet.send(rednetMessageSender,result..":"..failReason)
 		else
 			testFurther(uniqueId,cost,amount)
 		end
@@ -185,17 +181,17 @@ function windowData()
 	screenDesigner.setWindowStateWithoutDrawing(2)
 	screenDesigner.newButton(1,state,"LOGOUT",31,1,39,3)
 	screenDesigner.makeFlashButton(1)
-	newButtonFunction(1,logOut)
+	screenDesigner.newButtonFunction(1,logOut)
 	
 	--help button
 	screenDesigner.newButton(2,state,"?",8,1,8,1,false,colors.orange,colors.white,colors.black)
 	screenDesigner.makeFlashButton(2)
-	newButtonFunction(2,helpFunc)
+	screenDesigner.newButtonFunction(2,helpFunc)
 	
 	--buy/sell mode switch button
 	screenDesigner.newButton(3,state,"MODE",31,4,39,6,false,colors.white,colors.blue)
 	screenDesigner.makeFlashButton(3)
-	newButtonFunction(3,modeSwitch)
+	screenDesigner.newButtonFunction(3,modeSwitch)
 	
 	screenDesigner.newText(1,1,"Buying",bgColor,colors.lime)
 	screenDesigner.newText(1,2,"Item   : Earnings",bgColor,colors.red)
@@ -206,7 +202,7 @@ function windowData()
 	end
 end
 
-function modeSwitch()
+function modeSwitch(modes)
 	--1 is buy, 2 is sell
 	if modeValue==1 then
 		modeValue = 2
