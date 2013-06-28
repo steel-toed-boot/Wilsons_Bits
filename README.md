@@ -22,5 +22,5 @@ Computer folder information:
 17:used to toggle the cyan/lime lights inside the store.;nil 
 
 
-The program 'gc' stands for graphical designer. It is used for checking x and y positions to coordinate button locations.
+The program 'gc' stands for graphical context. It is used for checking x and y positions to coordinate button locations.
 It is never used in Wilson's Bits.
